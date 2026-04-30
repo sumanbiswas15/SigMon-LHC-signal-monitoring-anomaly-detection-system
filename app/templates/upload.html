@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LHC Magnet Analysis — Upload</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #0d1117;
+      color: #c9d1d9;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+
+    .logo {
+      font-size: 13px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: #58a6ff;
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #e6edf3;
+      margin-bottom: 6px;
+      text-align: center;
+    }
+
+    .subtitle {
+      color: #8b949e;
+      font-size: 14px;
+      margin-bottom: 48px;
+      text-align: center;
+    }
+
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 40px;
+      width: 100%;
+      max-width: 600px;
+    }
+
+    .drop-zone {
+      border: 2px dashed #30363d;
+      border-radius: 10px;
+      padding: 48px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: #58a6ff;
+      background: rgba(88,166,255,0.05);
+    }
+
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .drop-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    .drop-zone p {
+      color: #8b949e;
+      font-size: 14px;
+      margin-top: 8px;
+    }
+
+    .drop-zone strong {
+      color: #58a6ff;
+    }
+
+    .file-info {
+      display: none;
+      margin-top: 20px;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 16px;
+      font-size: 13px;
+    }
+
+    .file-info .fname {
+      color: #58a6ff;
+      font-weight: 600;
+      word-break: break-all;
+    }
+
+    .file-info .fsize {
+      color: #8b949e;
+      margin-top: 4px;
+    }
+
+    .col-preview {
+      margin-top: 16px;
+    }
+
+    .col-preview h4 {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #8b949e;
+      margin-bottom: 8px;
+    }
+
+    .col-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .col-tag {
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 4px;
+      padding: 3px 10px;
+      font-size: 12px;
+      color: #c9d1d9;
+    }
+
+    .col-tag.mapped {
+      border-color: #238636;
+      color: #3fb950;
+    }
+
+    .col-tag.missing {
+      border-color: #da3633;
+      color: #f85149;
+    }
+
+    .warning-box {
+      display: none;
+      margin-top: 16px;
+      background: rgba(210,153,34,0.1);
+      border: 1px solid #d29922;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: #d29922;
+    }
+
+    .btn {
+      display: block;
+      width: 100%;
+      margin-top: 24px;
+      padding: 14px;
+      background: #238636;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn:hover:not(:disabled) { background: #2ea043; }
+    .btn:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
+
+    .progress-wrap {
+      display: none;
+      margin-top: 20px;
+    }
+
+    .progress-label {
+      font-size: 13px;
+      color: #8b949e;
+      margin-bottom: 8px;
+    }
+
+    .progress-bar-bg {
+      background: #21262d;
+      border-radius: 4px;
+      height: 6px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: #58a6ff;
+      border-radius: 4px;
+      width: 0%;
+      transition: width 0.3s;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    .error-box {
+      display: none;
+      margin-top: 16px;
+      background: rgba(248,81,73,0.1);
+      border: 1px solid #f85149;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: #f85149;
+    }
+
+    .format-hint {
+      margin-top: 32px;
+      font-size: 12px;
+      color: #484f58;
+      text-align: center;
+      line-height: 1.8;
+    }
+
+    .format-hint code {
+      background: #21262d;
+      padding: 1px 6px;
+      border-radius: 3px;
+      color: #8b949e;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="logo">⚛ CERN · LHC Monitoring</div>
+  <h1>Magnet Quench Analysis</h1>
+  <p class="subtitle">Upload a CSV dataset to run advanced anomaly detection and visualisation</p>
+
+  <div class="card">
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="fileInput" accept=".csv" />
+      <div class="drop-icon">📂</div>
+      <strong>Drop your CSV here</strong>
+      <p>or click to browse — up to 500 MB</p>
+    </div>
+
+    <div class="file-info" id="fileInfo">
+      <div class="fname" id="fileName"></div>
+      <div class="fsize" id="fileSize"></div>
+      <div class="col-preview" id="colPreview" style="display:none">
+        <h4>Detected columns</h4>
+        <div class="col-tags" id="colTags"></div>
+      </div>
+    </div>
+
+    <div class="warning-box" id="warningBox"></div>
+    <div class="error-box" id="errorBox"></div>
+
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-label" id="progressLabel">Uploading…</div>
+      <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill"></div></div>
+    </div>
+
+    <button class="btn" id="analyzeBtn" disabled>Select a file to continue</button>
+  </div>
+
+  <div class="format-hint">
+    Expected columns (flexible naming): <code>magnet_id</code> · <code>timestamp</code> ·
+    <code>voltage_diff</code> · <code>resistance</code> · <code>temperature</code> · <code>quench_flag</code> (optional)
+  </div>
+
+  <script>
+    const dropZone   = document.getElementById('dropZone');
+    const fileInput  = document.getElementById('fileInput');
+    const fileInfo   = document.getElementById('fileInfo');
+    const fileName   = document.getElementById('fileName');
+    const fileSize   = document.getElementById('fileSize');
+    const colPreview = document.getElementById('colPreview');
+    const colTags    = document.getElementById('colTags');
+    const warningBox = document.getElementById('warningBox');
+    const errorBox   = document.getElementById('errorBox');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const progressWrap = document.getElementById('progressWrap');
+    const progressLabel = document.getElementById('progressLabel');
+    const progressFill  = document.getElementById('progressFill');
+
+    let uploadedFileId = null;
+
+    function fmtSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) handleFile(file);
+    });
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) handleFile(fileInput.files[0]);
+    });
+
+    function handleFile(file) {
+      errorBox.style.display = 'none';
+      warningBox.style.display = 'none';
+      colPreview.style.display = 'none';
+      analyzeBtn.disabled = true;
+      analyzeBtn.textContent = 'Uploading…';
+      uploadedFileId = null;
+
+      fileInfo.style.display = 'block';
+      fileName.textContent = file.name;
+      fileSize.textContent = fmtSize(file.size);
+
+      progressWrap.style.display = 'block';
+      progressLabel.textContent = 'Uploading…';
+      progressFill.style.width = '0%';
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/upload');
+
+      xhr.upload.onprogress = e => {
+        if (e.lengthComputable) {
+          const pct = Math.round(e.loaded / e.total * 100);
+          progressFill.style.width = pct + '%';
+          progressLabel.textContent = `Uploading… ${pct}%`;
+        }
+      };
+
+      xhr.onload = () => {
+        progressFill.style.width = '100%';
+        progressLabel.textContent = 'Upload complete';
+        try {
+          const res = JSON.parse(xhr.responseText);
+          if (res.error) { showError(res.error); return; }
+
+          uploadedFileId = res.file_id;
+          const mapped = res.col_map || {};
+          const missing = res.missing_canonical || [];
+
+          // Render column tags
+          colTags.innerHTML = '';
+          (res.columns || []).forEach(col => {
+            const tag = document.createElement('span');
+            tag.className = 'col-tag';
+            const canonical = Object.entries(mapped).find(([k, v]) => v === col);
+            if (canonical) {
+              tag.classList.add('mapped');
+              tag.textContent = `${col} → ${canonical[0]}`;
+            } else {
+              tag.textContent = col;
+            }
+            colTags.appendChild(tag);
+          });
+          colPreview.style.display = 'block';
+
+          if (missing.length > 0) {
+            warningBox.style.display = 'block';
+            warningBox.textContent = `⚠ Could not auto-map: ${missing.join(', ')}. Analysis will proceed with available columns.`;
+          }
+
+          analyzeBtn.disabled = false;
+          analyzeBtn.textContent = '🚀 Run Analysis';
+        } catch (e) {
+          showError('Unexpected server response.');
+        }
+      };
+
+      xhr.onerror = () => showError('Upload failed. Check your connection.');
+      xhr.send(formData);
+    }
+
+    analyzeBtn.addEventListener('click', () => {
+      if (!uploadedFileId) return;
+      progressLabel.textContent = 'Analysing — this may take a moment for large files…';
+      progressFill.style.width = '0%';
+      progressFill.style.animation = 'pulse 1.5s infinite';
+      analyzeBtn.disabled = true;
+      analyzeBtn.textContent = 'Analysing…';
+      window.location.href = `/analyze/${uploadedFileId}`;
+    });
+
+    function showError(msg) {
+      errorBox.style.display = 'block';
+      errorBox.textContent = '✖ ' + msg;
+      analyzeBtn.disabled = true;
+      analyzeBtn.textContent = 'Select a file to continue';
+      progressWrap.style.display = 'none';
+    }
+  </script>
+</body>
+</html>

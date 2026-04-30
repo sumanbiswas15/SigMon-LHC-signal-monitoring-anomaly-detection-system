@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+  lhc-app:
+    image: ${CI_REGISTRY_IMAGE:-lhc-magnet-analysis}:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5002:5002"
+    volumes:
+      # Persist uploaded files and parquet cache across restarts
+      - lhc_uploads:/tmp/lhc_uploads
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+
+volumes:
+  lhc_uploads:

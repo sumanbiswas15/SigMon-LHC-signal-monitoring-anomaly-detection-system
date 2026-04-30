@@ -1,0 +1,114 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# LHC Magnet Analysis — GitLab CI/CD Pipeline
+#
+# Stages:
+#   1. test   — install deps, run smoke tests
+#   2. build  — build & push Docker image to GitLab Container Registry
+#   3. deploy — SSH into server and pull + restart the container
+#
+# Required CI/CD Variables (set in GitLab → Settings → CI/CD → Variables):
+#   DEPLOY_HOST       — IP or hostname of your server  e.g. 192.168.1.10
+#   DEPLOY_USER       — SSH user on the server         e.g. ubuntu
+#   DEPLOY_SSH_KEY    — Private SSH key (type: File, protected)
+#   DEPLOY_DIR        — Folder on server               e.g. /opt/lhc-app
+# ─────────────────────────────────────────────────────────────────────────────
+
+stages:
+  - test
+  - build
+  - deploy
+
+variables:
+  IMAGE_NAME: $CI_REGISTRY_IMAGE
+  IMAGE_TAG:  $CI_COMMIT_SHORT_SHA
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+# ── Cache pip downloads across jobs ──────────────────────────────────────────
+.pip_cache: &pip_cache
+  cache:
+    key: pip-$CI_COMMIT_REF_SLUG
+    paths:
+      - .cache/pip/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STAGE 1 — TEST
+# ─────────────────────────────────────────────────────────────────────────────
+test:
+  stage: test
+  image: python:3.10-slim
+  <<: *pip_cache
+  before_script:
+    - pip install --quiet -r requirements.txt
+    - pip install --quiet pytest
+  script:
+    - pytest tests/test_smoke.py -v --tb=short
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STAGE 2 — BUILD & PUSH DOCKER IMAGE
+# ─────────────────────────────────────────────────────────────────────────────
+build:
+  stage: build
+  image: docker:24
+  services:
+    - docker:24-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+  script:
+    # Build with commit SHA tag and also tag as 'latest' on main
+    - docker build -t "$IMAGE_NAME:$IMAGE_TAG" .
+    - docker push "$IMAGE_NAME:$IMAGE_TAG"
+    - |
+      if [ "$CI_COMMIT_BRANCH" = "main" ]; then
+        docker tag "$IMAGE_NAME:$IMAGE_TAG" "$IMAGE_NAME:latest"
+        docker push "$IMAGE_NAME:latest"
+      fi
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STAGE 3 — DEPLOY (main branch only)
+# ─────────────────────────────────────────────────────────────────────────────
+deploy:
+  stage: deploy
+  image: alpine:3.19
+  before_script:
+    - apk add --no-cache openssh-client
+    - eval $(ssh-agent -s)
+    # DEPLOY_SSH_KEY must be a CI/CD variable of type "File"
+    - chmod 400 "$DEPLOY_SSH_KEY"
+    - ssh-add "$DEPLOY_SSH_KEY"
+    - mkdir -p ~/.ssh
+    - ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+  script:
+    - |
+      ssh "$DEPLOY_USER@$DEPLOY_HOST" "
+        set -e
+        cd $DEPLOY_DIR
+
+        # Log in to GitLab registry on the server
+        docker login -u '$CI_REGISTRY_USER' -p '$CI_REGISTRY_PASSWORD' '$CI_REGISTRY'
+
+        # Pull the new image
+        docker pull $IMAGE_NAME:$IMAGE_TAG
+
+        # Update the image tag in compose and restart
+        export IMAGE_TAG=$IMAGE_TAG
+        export CI_REGISTRY_IMAGE=$IMAGE_NAME
+        docker compose pull
+        docker compose up -d --remove-orphans
+
+        # Clean up old images
+        docker image prune -f
+      "
+  environment:
+    name: production
+    url: http://$DEPLOY_HOST:5002
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'

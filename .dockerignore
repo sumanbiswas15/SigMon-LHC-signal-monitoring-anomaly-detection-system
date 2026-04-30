@@ -1,0 +1,13 @@
+.venv/
+.vscode/
+.pytest_cache/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.git/
+.gitignore
+tests/
+logs/
+reports/
+*.parquet
